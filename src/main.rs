@@ -6,17 +6,14 @@ use std::str::FromStr;
 
 type Error = Box<dyn std::error::Error>;
 
+const PAGE: usize = 4 * 1024;
 const GB: usize = 1024 * 1024 * 1024;
 
 fn main() -> Result<(), Error> {
     // create file
     let file = File::open("testfile")?;
 
-    println!("1GB: {}", GB);
-    println!("0.5GB: {}", GB / 2);
-
     let args: Vec<String> = env::args().into_iter().skip(1).collect();
-    println!("args: {:?}", args);
 
     if args.len() == 0 {
         eprintln!("Usage: ./target/release/sequential_read <mode>");
@@ -43,30 +40,41 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
+// file read from memory
 fn mmap(file: File) -> Result<(), Error> {
-    // cat file access from memory
     let mmap = unsafe { Mmap::map(&file)? };
+    let mut total = 0;
 
-    println!("mmap: {:?}", mmap);
     assert_eq!(GB, mmap.len());
 
-    for (i, b) in mmap.iter().enumerate() {
-        println!("i: {i}, b: {b}");
+    for i in (0..mmap.len()).step_by(PAGE) {
+        let _ = mmap[i];
+        total += PAGE;
     }
+
+    assert_eq!(total, GB, "mmap read size mismatch");
 
     Ok(())
 }
 
+// file read from disk
 fn buf_read(mut file: File, size: usize) -> Result<(), Error> {
-    // file read
     let mut buffer = vec![0; size];
+    let mut total = 0;
 
-    while let Some(byte) = file.read(buffer.as_mut_slice()).ok() {
-        if byte == 0 {
+    loop {
+        let n = file.read(&mut buffer)?;
+        if n == 0 {
             break;
+        };
+
+        for i in (0..n).step_by(PAGE) {
+            let _ = buffer[i];
         }
-        println!("can read byte: {byte}");
+        total += n;
     }
+
+    assert_eq!(total, GB, "buf_read size mismatch");
 
     Ok(())
 }
