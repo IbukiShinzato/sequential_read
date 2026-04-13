@@ -15,6 +15,7 @@ SIZES=(
   $(( 4 * KB ))
   $(( 64 * KB ))
   $(( 1 * MB ))
+  $(( 1 * GB ))
 )
 
 echo "Building binary..."
